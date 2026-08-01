@@ -435,8 +435,11 @@
   </section>
 
   <div class="edit-hint">
-    <span>وضع التعديل مفعّل — اضغط على أي بطاقة لتعديل رابطها، أو ✕ لحذفها.</span>
-    <button class="copy-btn" id="copyConfig">نسخ الإعداد لحفظه بشكل دائم</button>
+    <span>وضع التعديل مفعّل — التغييرات تُحفظ تلقائيًا في هذا المتصفح.</span>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="copy-btn" id="copyConfig">نسخة احتياطية (للنقل لجهاز آخر)</button>
+      <button class="copy-btn" id="resetDefaults">استعادة الافتراضي</button>
+    </div>
   </div>
 
   <section class="grid" id="grid"></section>
@@ -489,7 +492,7 @@
    icon: اختر أحد المفاتيح الموجودة في كائن ICONS بالأسفل، أو أضف مفتاحًا جديدًا.
    colors: [لون البداية، لون النهاية] لتدرج أيقونة البطاقة.
    ===================================================================== */
-const SITES = [
+const DEFAULT_SITES = [
   {
     name: 'موقع الموظفين',
     desc: 'إدارة بيانات وشؤون الموظفين',
@@ -548,6 +551,25 @@ const ICONS = {
 
 const grid = document.getElementById('grid');
 const emptyMsg = document.getElementById('emptyMsg');
+
+// ---- persistence: keep changes saved in this browser ----
+const STORAGE_KEY = 'commandCenterSites_v1';
+
+function loadSites(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_SITES.map(s => ({ ...s }));
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  }catch(e){ /* fall through to defaults */ }
+  return DEFAULT_SITES.map(s => ({ ...s }));
+}
+
+function saveSites(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(SITES)); }catch(e){ /* storage unavailable */ }
+}
+
+let SITES = loadSites();
 
 function iconSvg(key){
   const paths = ICONS[key] || ICONS.link;
@@ -661,8 +683,9 @@ function deleteSite(site, cardEl){
   setTimeout(() => {
     SITES.splice(index, 1);
     lastDeleted = { site, index };
+    saveSites();
     renderCards(SITES);
-    showToast(`تم حذف "${site.name}" لهذه الجلسة`, true);
+    showToast(`تم حذف "${site.name}"`, true);
   }, 320);
 }
 
@@ -670,18 +693,19 @@ toastUndo.addEventListener('click', () => {
   if (!lastDeleted) return;
   SITES.splice(lastDeleted.index, 0, lastDeleted.site);
   lastDeleted = null;
+  saveSites();
   renderCards(SITES);
   toast.classList.remove('show');
 });
 
 // ---- copy updated config (to make deletions permanent in the file) ----
 document.getElementById('copyConfig').addEventListener('click', async () => {
-  const code = 'const SITES = ' + JSON.stringify(SITES, null, 2) + ';';
+  const code = 'const DEFAULT_SITES = ' + JSON.stringify(SITES, null, 2) + ';';
   try{
     await navigator.clipboard.writeText(code);
-    showToast('تم نسخ الإعداد — الصقه مكان مصفوفة SITES في الكود', false);
+    showToast('تم نسخ نسخة احتياطية من إعداداتك', false);
   }catch(err){
-    showToast('تعذّر النسخ التلقائي، انسخ الإعداد يدويًا من الكونسول', false);
+    showToast('تعذّر النسخ التلقائي، افتح الكونسول لنسخها يدويًا', false);
     console.log(code);
   }
 });
@@ -785,8 +809,17 @@ document.getElementById('modalSave').addEventListener('click', () => {
     SITES.push(data);
     showToast(`تمت إضافة "${name}"`, false);
   }
+  saveSites();
   renderCards(SITES);
   closeModal();
+});
+
+document.getElementById('resetDefaults').addEventListener('click', () => {
+  if (!confirm('هذا سيمسح كل تعديلاتك ويرجّع القائمة الافتراضية. متأكد؟')) return;
+  SITES = DEFAULT_SITES.map(s => ({ ...s }));
+  saveSites();
+  renderCards(SITES);
+  showToast('تم استعادة الإعدادات الافتراضية', false);
 });
 
 // ---- theme toggle (respects system preference; session only) ----
