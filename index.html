@@ -250,6 +250,7 @@
     width:38px; height:38px; border-radius:12px; border:1px solid var(--glass-border);
     background: var(--glass); cursor:pointer; display:grid; place-items:center; flex:none;
     color: var(--text); transition: background .3s ease, color .3s ease, transform .3s ease;
+    position:relative;
   }
   .edit-btn svg{ width:16px; height:16px; }
   .edit-btn:hover{ background: var(--glass-strong); }
@@ -409,6 +410,10 @@
       <div class="time" id="clockTime">--:--</div>
       <div class="date" id="clockDate">—</div>
     </div>
+    <button class="edit-btn" id="cloudBtn" aria-label="ربط GitHub للمزامنة" title="مزامنة عبر الأجهزة">
+      <svg id="cloudIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4-1.5A5 5 0 0 0 6 19h11.5Z"></path></svg>
+      <span id="cloudDot" style="display:none; position:absolute; top:5px; left:5px; width:7px; height:7px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 2px var(--bg);"></span>
+    </button>
     <button class="edit-btn" id="editToggle" aria-label="تعديل البطاقات" title="تعديل / حذف البطاقات">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
     </button>
@@ -480,6 +485,48 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="modalCancel">إلغاء</button>
       <button class="btn btn-primary" id="modalSave">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ghModalOverlay">
+  <div class="modal" style="max-width:460px;">
+    <h3>مزامنة عبر الأجهزة</h3>
+    <p style="font-size:.8rem; color:var(--text-dim); line-height:1.7; margin-bottom:16px;">
+      اربط الصفحة برمز وصول شخصي من GitHub (Personal Access Token) عشان أي تعديل تسويه ينحفظ لمستودعك مباشرة ويظهر من أي جهاز تفتح منه الرابط.
+    </p>
+
+    <div class="field">
+      <label for="ghToken">رمز الوصول (Token)</label>
+      <input id="ghToken" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    </div>
+
+    <button type="button" class="copy-btn" id="ghAdvancedToggle" style="margin-bottom:13px;">خيارات متقدمة (اسم المستودع والمسار)</button>
+    <div id="ghAdvanced" style="display:none;">
+      <div class="field"><label for="ghOwner">اسم المستخدم</label><input id="ghOwner" type="text"></div>
+      <div class="field"><label for="ghRepo">اسم المستودع</label><input id="ghRepo" type="text"></div>
+      <div class="field"><label for="ghBranch">الفرع (Branch)</label><input id="ghBranch" type="text"></div>
+      <div class="field"><label for="ghPath">مسار ملف البيانات</label><input id="ghPath" type="text"></div>
+    </div>
+
+    <p style="font-size:.72rem; color:var(--text-dim); line-height:1.8; margin:6px 0 16px; padding:12px; background:var(--glass); border-radius:10px; border:1px solid var(--glass-border);">
+      <strong>كيف تحصل على الرمز:</strong><br>
+      1) GitHub.com ← الصورة الشخصية ← Settings<br>
+      2) Developer settings ← Personal access tokens ← Fine-grained tokens<br>
+      3) Generate new token ← اختر هذا المستودع فقط<br>
+      4) Permissions ← Contents ← Read and write<br>
+      5) انسخ الرمز والصقه هنا (يظهر مرة وحدة بس)
+    </p>
+
+    <div class="field-error show" id="ghError" style="display:none;"></div>
+    <div class="field-error show" id="ghStatus" style="display:none; color:#2f9e5c;"></div>
+
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button class="btn btn-ghost" id="ghDisconnect" style="display:none;">فصل الاتصال</button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-ghost" id="ghCancel">إغلاق</button>
+        <button class="btn btn-primary" id="ghSave">حفظ الاتصال</button>
+      </div>
     </div>
   </div>
 </div>
@@ -644,6 +691,181 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
   renderCards(filtered);
 });
 
+// ---- GitHub sync (optional cross-device persistence) ----
+const GH_CONFIG_KEY = 'ghConfig_v1';
+const GH_DEFAULTS = { owner: 'fh76zx2wy2-spec', repo: 'my-hub', branch: 'main', path: 'sites.json', token: '' };
+
+function loadGhConfig(){
+  try{
+    const raw = localStorage.getItem(GH_CONFIG_KEY);
+    if (!raw) return { ...GH_DEFAULTS };
+    return { ...GH_DEFAULTS, ...JSON.parse(raw) };
+  }catch(e){ return { ...GH_DEFAULTS }; }
+}
+function saveGhConfig(cfg){
+  try{ localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(cfg)); }catch(e){ /* noop */ }
+}
+let GH = loadGhConfig();
+function isGhConnected(){ return !!GH.token; }
+
+function b64EncodeUnicode(str){
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode('0x' + p1)));
+}
+function b64DecodeUnicode(str){
+  return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+}
+
+function updateCloudDot(){
+  document.getElementById('cloudDot').style.display = isGhConnected() ? 'block' : 'none';
+}
+updateCloudDot();
+
+// fetch the shared file straight from GitHub's API (works even before a token is set, for public repos)
+async function fetchRemoteSites(){
+  try{
+    const url = `https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}?ref=${GH.branch}&t=${Date.now()}`;
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    if (GH.token) headers['Authorization'] = 'Bearer ' + GH.token;
+    const res = await fetch(url, { headers, cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const json = b64DecodeUnicode(data.content.replace(/\n/g, ''));
+    const parsed = JSON.parse(json);
+    if (Array.isArray(parsed)) return parsed;
+    return null;
+  }catch(e){ return null; }
+}
+
+let syncQueue = Promise.resolve();
+function queueSync(){ syncQueue = syncQueue.then(() => syncToGitHub()).catch(() => {}); }
+
+async function syncToGitHub(){
+  if (!isGhConnected()) return;
+  try{
+    const getUrl = `https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}?ref=${GH.branch}`;
+    const headers = { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + GH.token };
+    const getRes = await fetch(getUrl, { headers, cache: 'no-store' });
+    let sha = undefined;
+    if (getRes.ok){ const cur = await getRes.json(); sha = cur.sha; }
+
+    const putUrl = `https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}`;
+    const body = {
+      message: 'تحديث مركز القيادة',
+      content: b64EncodeUnicode(JSON.stringify(SITES, null, 2)),
+      branch: GH.branch
+    };
+    if (sha) body.sha = sha;
+
+    const putRes = await fetch(putUrl, {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!putRes.ok){
+      const err = await putRes.json().catch(() => ({}));
+      showToast('تعذّرت المزامنة مع GitHub: ' + (err.message || putRes.status), false);
+      return;
+    }
+    showToast('تمت المزامنة مع GitHub ✅', false);
+  }catch(e){
+    showToast('تعذّرت المزامنة — تحقق من الاتصال بالإنترنت', false);
+  }
+}
+
+// on load: prefer the shared GitHub copy over the local one, if it exists
+(async function initRemoteSync(){
+  const remote = await fetchRemoteSites();
+  if (remote){
+    SITES = remote;
+    saveSites();
+    renderCards(SITES);
+  }
+})();
+
+// ---- GitHub settings modal ----
+const ghModalOverlay = document.getElementById('ghModalOverlay');
+const ghToken = document.getElementById('ghToken');
+const ghOwner = document.getElementById('ghOwner');
+const ghRepo = document.getElementById('ghRepo');
+const ghBranch = document.getElementById('ghBranch');
+const ghPath = document.getElementById('ghPath');
+const ghError = document.getElementById('ghError');
+const ghStatus = document.getElementById('ghStatus');
+const ghDisconnect = document.getElementById('ghDisconnect');
+
+document.getElementById('ghAdvancedToggle').addEventListener('click', () => {
+  const el = document.getElementById('ghAdvanced');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+});
+
+function openGhModal(){
+  ghError.style.display = 'none';
+  ghStatus.style.display = 'none';
+  ghToken.value = '';
+  ghOwner.value = GH.owner;
+  ghRepo.value = GH.repo;
+  ghBranch.value = GH.branch;
+  ghPath.value = GH.path;
+  ghDisconnect.style.display = isGhConnected() ? 'inline-block' : 'none';
+  if (isGhConnected()){
+    ghStatus.style.display = 'block';
+    ghStatus.textContent = `متصل حاليًا بـ ${GH.owner}/${GH.repo} — اترك حقل الرمز فاضيًا للإبقاء عليه، أو أدخل رمزًا جديدًا لاستبداله.`;
+  }
+  ghModalOverlay.classList.add('show');
+}
+function closeGhModal(){ ghModalOverlay.classList.remove('show'); }
+
+document.getElementById('cloudBtn').addEventListener('click', openGhModal);
+document.getElementById('ghCancel').addEventListener('click', closeGhModal);
+ghModalOverlay.addEventListener('click', (e) => { if (e.target === ghModalOverlay) closeGhModal(); });
+
+document.getElementById('ghSave').addEventListener('click', async () => {
+  const owner = ghOwner.value.trim() || GH_DEFAULTS.owner;
+  const repo = ghRepo.value.trim() || GH_DEFAULTS.repo;
+  const branch = ghBranch.value.trim() || GH_DEFAULTS.branch;
+  const path = ghPath.value.trim() || GH_DEFAULTS.path;
+  const token = ghToken.value.trim() || GH.token;
+
+  if (!token){
+    ghError.style.display = 'block';
+    ghError.textContent = 'فضلاً أدخل رمز الوصول (Token) أول مرة تربط فيها.';
+    return;
+  }
+
+  GH = { owner, repo, branch, path, token };
+  ghError.style.display = 'none';
+  ghStatus.style.display = 'block';
+  ghStatus.textContent = 'جارٍ التحقق من الاتصال...';
+
+  const headers = { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + token };
+  try{
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
+    if (!res.ok){
+      ghStatus.style.display = 'none';
+      ghError.style.display = 'block';
+      ghError.textContent = 'تعذّر الاتصال — تحقق من الرمز واسم المستودع.';
+      return;
+    }
+    saveGhConfig(GH);
+    updateCloudDot();
+    ghStatus.textContent = 'تم الربط بنجاح ✅';
+    queueSync(); // push current local data as the first shared copy
+    setTimeout(closeGhModal, 900);
+  }catch(e){
+    ghStatus.style.display = 'none';
+    ghError.style.display = 'block';
+    ghError.textContent = 'تعذّر الاتصال بالإنترنت.';
+  }
+});
+
+ghDisconnect.addEventListener('click', () => {
+  GH = { ...GH_DEFAULTS };
+  saveGhConfig(GH);
+  updateCloudDot();
+  closeGhModal();
+  showToast('تم فصل اتصال GitHub — التعديلات صارت محلية فقط', false);
+});
+
 // ---- clock ----
 function updateClock(){
   const now = new Date();
@@ -684,6 +906,7 @@ function deleteSite(site, cardEl){
     SITES.splice(index, 1);
     lastDeleted = { site, index };
     saveSites();
+    queueSync();
     renderCards(SITES);
     showToast(`تم حذف "${site.name}"`, true);
   }, 320);
@@ -694,6 +917,7 @@ toastUndo.addEventListener('click', () => {
   SITES.splice(lastDeleted.index, 0, lastDeleted.site);
   lastDeleted = null;
   saveSites();
+  queueSync();
   renderCards(SITES);
   toast.classList.remove('show');
 });
@@ -810,6 +1034,7 @@ document.getElementById('modalSave').addEventListener('click', () => {
     showToast(`تمت إضافة "${name}"`, false);
   }
   saveSites();
+  queueSync();
   renderCards(SITES);
   closeModal();
 });
@@ -818,6 +1043,7 @@ document.getElementById('resetDefaults').addEventListener('click', () => {
   if (!confirm('هذا سيمسح كل تعديلاتك ويرجّع القائمة الافتراضية. متأكد؟')) return;
   SITES = DEFAULT_SITES.map(s => ({ ...s }));
   saveSites();
+  queueSync();
   renderCards(SITES);
   showToast('تم استعادة الإعدادات الافتراضية', false);
 });
