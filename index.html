@@ -302,6 +302,56 @@
     font-family:var(--font-body); font-size:.8rem;
   }
 
+  /* ---------- add/edit modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    background: rgba(7,12,23,0.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    opacity:0; pointer-events:none; transition: opacity .3s ease; padding:20px;
+  }
+  .modal-overlay.show{ opacity:1; pointer-events:auto; }
+  .modal{
+    width:100%; max-width:420px; border-radius:22px; padding:26px 24px 22px;
+    background: var(--glass-strong); backdrop-filter: blur(26px) saturate(170%); -webkit-backdrop-filter: blur(26px) saturate(170%);
+    border:1px solid var(--glass-border); box-shadow: var(--card-shadow);
+    transform: translateY(16px) scale(.97); opacity:0; transition: transform .35s cubic-bezier(.22,1,.36,1), opacity .35s ease;
+  }
+  .modal-overlay.show .modal{ transform:translateY(0) scale(1); opacity:1; }
+  .modal h3{ font-family:var(--font-display); font-size:1.1rem; font-weight:800; margin-bottom:16px; }
+  .field{ margin-bottom:13px; }
+  .field label{ display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:5px; font-weight:600; }
+  .field input, .field select{
+    width:100%; padding:10px 12px; border-radius:11px; border:1px solid var(--glass-border);
+    background: var(--glass); color:var(--text); font-family:var(--font-body); font-size:.88rem; outline:none;
+    transition: border-color .25s ease, box-shadow .25s ease;
+  }
+  .field input:focus, .field select:focus{ border-color: var(--ring); box-shadow: 0 0 0 3px var(--ring); }
+  .swatches{ display:flex; gap:9px; margin-top:2px; }
+  .swatch{
+    width:28px; height:28px; border-radius:50%; cursor:pointer; border:2px solid transparent;
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .swatch:hover{ transform:scale(1.1); }
+  .swatch.active{ border-color: var(--accent); transform:scale(1.12); }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .btn{
+    padding:10px 18px; border-radius:11px; border:none; cursor:pointer;
+    font-family:var(--font-body); font-weight:700; font-size:.85rem;
+    transition: transform .2s ease, opacity .2s ease;
+  }
+  .btn:active{ transform:scale(.96); }
+  .btn-ghost{ background: var(--glass); color:var(--text); border:1px solid var(--glass-border); }
+  .btn-primary{ background: linear-gradient(155deg, var(--gold-400), var(--gold-500)); color: var(--accent-ink); }
+  .field-error{ font-size:.72rem; color:#d9584a; margin-top:5px; display:none; }
+  .field-error.show{ display:block; }
+
+  .card-edit-hint{
+    position:absolute; inset:0; border-radius:22px; display:none;
+    align-items:center; justify-content:center; background: rgba(7,12,23,0.35);
+    color:#fff; font-size:.78rem; font-weight:700; font-family:var(--font-display);
+    opacity:0; transition: opacity .25s ease;
+  }
+  body.edit-mode .card:not(.ghost):hover .card-edit-hint{ display:flex; opacity:1; }
+
   /* ghost / add card */
   .card.ghost{
     align-items:center; justify-content:center; text-align:center;
@@ -385,7 +435,7 @@
   </section>
 
   <div class="edit-hint">
-    <span>وضع التعديل مفعّل — اضغط ✕ على أي بطاقة لحذفها من هذه الجلسة.</span>
+    <span>وضع التعديل مفعّل — اضغط على أي بطاقة لتعديل رابطها، أو ✕ لحذفها.</span>
     <button class="copy-btn" id="copyConfig">نسخ الإعداد لحفظه بشكل دائم</button>
   </div>
 
@@ -398,6 +448,37 @@
 <div class="toast" id="toast">
   <span id="toastMsg"></span>
   <button id="toastUndo">تراجع</button>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">إضافة موقع جديد</h3>
+    <div class="field">
+      <label for="fName">اسم البطاقة</label>
+      <input id="fName" type="text" placeholder="مثال: سجلات القضايا">
+    </div>
+    <div class="field">
+      <label for="fDesc">وصف قصير</label>
+      <input id="fDesc" type="text" placeholder="مثال: أرشيف ومتابعة القضايا">
+    </div>
+    <div class="field">
+      <label for="fUrl">الرابط</label>
+      <input id="fUrl" type="url" placeholder="https://example.com">
+      <div class="field-error" id="fError">فضلاً أدخل اسمًا ورابطًا صحيحًا (يبدأ بـ http:// أو https://)</div>
+    </div>
+    <div class="field">
+      <label for="fIcon">الأيقونة</label>
+      <select id="fIcon"></select>
+    </div>
+    <div class="field">
+      <label>اللون</label>
+      <div class="swatches" id="fSwatches"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modalCancel">إلغاء</button>
+      <button class="btn btn-primary" id="modalSave">حفظ</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -488,6 +569,7 @@ function renderCards(list){
       <button type="button" class="delete-btn" aria-label="حذف ${site.name}" title="حذف">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
       </button>
+      <div class="card-edit-hint">اضغط للتعديل</div>
       <div class="card-icon">${iconSvg(site.icon)}</div>
       <div>
         <div class="card-name">${site.name}</div>
@@ -498,9 +580,12 @@ function renderCards(list){
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M7 7h10v10"></path></svg>
       </div>`;
 
-    // block navigation while in edit mode
+    // in edit mode: block navigation and open the edit modal instead
     a.addEventListener('click', (e) => {
-      if (document.body.classList.contains('edit-mode')) e.preventDefault();
+      if (document.body.classList.contains('edit-mode')) {
+        e.preventDefault();
+        openModal('edit', site);
+      }
     });
 
     // delete this site
@@ -513,14 +598,15 @@ function renderCards(list){
     grid.appendChild(a);
   });
 
-  // ghost "add" card
+  // ghost "add" card — always clickable
   const ghost = document.createElement('div');
   ghost.className = 'card ghost';
   ghost.style.setProperty('--i', list.length);
   ghost.innerHTML = `
     <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg></div>
     <div class="card-name">إضافة موقع</div>
-    <div class="card-desc">أضف عنصرًا جديدًا لمصفوفة SITES في الكود</div>`;
+    <div class="card-desc">اضغط هنا لإضافة رابط جديد مباشرة</div>`;
+  ghost.addEventListener('click', () => openModal('add'));
   grid.appendChild(ghost);
 
   emptyMsg.style.display = list.length === 0 ? 'block' : 'none';
@@ -598,6 +684,109 @@ document.getElementById('copyConfig').addEventListener('click', async () => {
     showToast('تعذّر النسخ التلقائي، انسخ الإعداد يدويًا من الكونسول', false);
     console.log(code);
   }
+});
+
+// ---- add / edit modal ----
+const ICON_LABELS = {
+  users: 'أشخاص', keyboard: 'لوحة مفاتيح', droplet: 'قطرة', folder: 'ملف',
+  gavel: 'مطرقة', settings: 'إعدادات', briefcase: 'حقيبة', scale: 'ميزان', link: 'رابط'
+};
+const SWATCHES = [
+  ['#2c4770', '#0e1c33'],
+  ['#4a5568', '#1f242e'],
+  ['#3d7ea6', '#1a3a52'],
+  ['#7a5c2e', '#3c2c14'],
+  ['#c9a24a', '#7a5c2e'],
+  ['#8a4a4a', '#3c1f1f']
+];
+
+const modalOverlay = document.getElementById('modalOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const fName = document.getElementById('fName');
+const fDesc = document.getElementById('fDesc');
+const fUrl = document.getElementById('fUrl');
+const fIcon = document.getElementById('fIcon');
+const fSwatches = document.getElementById('fSwatches');
+const fError = document.getElementById('fError');
+
+fIcon.innerHTML = Object.keys(ICONS).map(key =>
+  `<option value="${key}">${ICON_LABELS[key] || key}</option>`
+).join('');
+
+fSwatches.innerHTML = SWATCHES.map((c, i) =>
+  `<span class="swatch" data-i="${i}" style="background:linear-gradient(155deg, ${c[0]}, ${c[1]})"></span>`
+).join('');
+let selectedSwatch = 0;
+fSwatches.querySelectorAll('.swatch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    selectedSwatch = Number(sw.dataset.i);
+    fSwatches.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+  });
+});
+
+let modalMode = 'add';
+let editingSite = null;
+
+function openModal(mode, site){
+  modalMode = mode;
+  editingSite = site || null;
+  fError.classList.remove('show');
+
+  if (mode === 'edit' && site){
+    modalTitle.textContent = 'تعديل البطاقة';
+    fName.value = site.name;
+    fDesc.value = site.desc;
+    fUrl.value = site.url;
+    fIcon.value = site.icon;
+    selectedSwatch = SWATCHES.findIndex(c => c[0] === site.colors[0] && c[1] === site.colors[1]);
+    if (selectedSwatch === -1) selectedSwatch = 0;
+  } else {
+    modalTitle.textContent = 'إضافة موقع جديد';
+    fName.value = '';
+    fDesc.value = '';
+    fUrl.value = '';
+    fIcon.value = 'link';
+    selectedSwatch = Math.floor(Math.random() * SWATCHES.length);
+  }
+  fSwatches.querySelectorAll('.swatch').forEach((s, i) => s.classList.toggle('active', i === selectedSwatch));
+
+  modalOverlay.classList.add('show');
+  setTimeout(() => fName.focus(), 200);
+}
+
+function closeModal(){
+  modalOverlay.classList.remove('show');
+}
+
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('show')) closeModal(); });
+
+document.getElementById('modalSave').addEventListener('click', () => {
+  const name = fName.value.trim();
+  let url = fUrl.value.trim();
+  const desc = fDesc.value.trim() || 'رابط سريع';
+
+  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+  if (!name || !url || !/^https?:\/\/.+/i.test(url)){
+    fError.classList.add('show');
+    return;
+  }
+  fError.classList.remove('show');
+
+  const data = { name, desc, url, icon: fIcon.value, colors: SWATCHES[selectedSwatch] };
+
+  if (modalMode === 'edit' && editingSite){
+    Object.assign(editingSite, data);
+    showToast(`تم تحديث "${name}"`, false);
+  } else {
+    SITES.push(data);
+    showToast(`تمت إضافة "${name}"`, false);
+  }
+  renderCards(SITES);
+  closeModal();
 });
 
 // ---- theme toggle (respects system preference; session only) ----
