@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مركز القيادة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     TOKENS
+     Palette: deep navy + brushed gold, evoking a private study /
+     legal chambers rendered through frosted OS glass.
+     ============================================================ */
+  :root{
+    --navy-950:#070c17;
+    --navy-900:#0b1526;
+    --navy-800:#101d34;
+    --navy-700:#16274a;
+    --gold-500:#c9a24a;
+    --gold-400:#dabb6f;
+    --gold-300:#e9d29c;
+    --paper-50:#f6f4ef;
+    --paper-100:#efece3;
+    --ink-900:#15140f;
+    --ink-700:#3c392f;
+
+    --bg: var(--paper-50);
+    --bg-grad-a: #f7f3ea;
+    --bg-grad-b: #eee7d8;
+    --text: var(--ink-900);
+    --text-dim: var(--ink-700);
+    --glass: rgba(255,255,255,0.50);
+    --glass-strong: rgba(255,255,255,0.68);
+    --glass-border: rgba(255,255,255,0.65);
+    --card-shadow: 0 20px 45px -20px rgba(21,20,15,0.28), 0 2px 8px -2px rgba(21,20,15,0.10);
+    --accent: var(--gold-500);
+    --accent-ink: var(--navy-950);
+    --ring: rgba(201,162,74,0.55);
+    --bar-bg: rgba(255,255,255,0.55);
+    --divider: rgba(21,20,15,0.08);
+    --font-display: 'Cairo', 'Segoe UI', sans-serif;
+    --font-body: 'Tajawal', 'Segoe UI', sans-serif;
+  }
+
+  html.dark{
+    --bg: var(--navy-950);
+    --bg-grad-a: #0b1526;
+    --bg-grad-b: #050810;
+    --text: var(--paper-50);
+    --text-dim: #b9c0cf;
+    --glass: rgba(255,255,255,0.06);
+    --glass-strong: rgba(255,255,255,0.10);
+    --glass-border: rgba(255,255,255,0.14);
+    --card-shadow: 0 25px 60px -25px rgba(0,0,0,0.75), 0 2px 10px -2px rgba(0,0,0,0.5);
+    --accent: var(--gold-400);
+    --accent-ink: #0b0a06;
+    --ring: rgba(218,187,111,0.45);
+    --bar-bg: rgba(11,21,38,0.55);
+    --divider: rgba(255,255,255,0.09);
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--bg);
+    min-height:100vh;
+    overflow-x:hidden;
+    transition: background .6s ease, color .6s ease;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- ambient background ---------- */
+  .aurora{
+    position:fixed; inset:0; z-index:-1; overflow:hidden;
+    background:
+      radial-gradient(closest-side, rgba(201,162,74,0.16), transparent 70%) top left / 60% 55% no-repeat,
+      radial-gradient(closest-side, rgba(22,39,74,0.14), transparent 70%) bottom right / 65% 60% no-repeat,
+      linear-gradient(160deg, var(--bg-grad-a), var(--bg-grad-b));
+    transition: background 1s ease;
+  }
+  .aurora span{
+    position:absolute; border-radius:50%; filter:blur(60px);
+    opacity:.55; will-change:transform;
+  }
+  .aurora span:nth-child(1){ width:38vw; height:38vw; top:-10%; right:-8%; background:radial-gradient(circle, var(--gold-300), transparent 70%); animation: drift1 26s ease-in-out infinite; }
+  .aurora span:nth-child(2){ width:32vw; height:32vw; bottom:-12%; left:-10%; background:radial-gradient(circle, var(--navy-700), transparent 70%); animation: drift2 30s ease-in-out infinite; }
+  .aurora span:nth-child(3){ width:22vw; height:22vw; top:35%; left:38%; background:radial-gradient(circle, var(--gold-400), transparent 72%); opacity:.25; animation: drift3 22s ease-in-out infinite; }
+
+  @keyframes drift1{ 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(-4%,6%) scale(1.08);} }
+  @keyframes drift2{ 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(5%,-5%) scale(1.1);} }
+  @keyframes drift3{ 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(3%,4%) scale(0.92);} }
+
+  /* ---------- status bar ---------- */
+  .statusbar{
+    position:sticky; top:0; z-index:40;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:14px;
+    margin:14px auto 0; max-width:1180px; width:calc(100% - 28px);
+    padding:10px 18px;
+    background: var(--bar-bg);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border:1px solid var(--glass-border);
+    border-radius:20px;
+    box-shadow: var(--card-shadow);
+    opacity:0; transform: translateY(-14px);
+    animation: dropIn .7s cubic-bezier(.22,1,.36,1) .05s forwards;
+  }
+  @keyframes dropIn{ to{ opacity:1; transform:translateY(0);} }
+
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{
+    width:32px; height:32px; border-radius:9px; position:relative; flex:none;
+    background: linear-gradient(155deg, var(--navy-800), var(--navy-950));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12), 0 4px 10px -4px rgba(0,0,0,.5);
+    display:grid; place-items:center;
+  }
+  .brand-mark svg{ width:16px; height:16px; }
+  .brand-name{ font-family: var(--font-display); font-weight:800; font-size:.92rem; letter-spacing:.2px; }
+  .brand-sub{ font-size:.68rem; color:var(--text-dim); margin-top:1px; }
+
+  .status-right{ display:flex; align-items:center; gap:10px; }
+  .clock{ text-align:left; direction:ltr; font-family:var(--font-body); }
+  .clock .time{ font-weight:700; font-size:.85rem; }
+  .clock .date{ font-size:.66rem; color:var(--text-dim); direction:rtl; text-align:right; margin-top:1px; }
+
+  .toggle{
+    width:46px; height:26px; border-radius:999px; border:1px solid var(--glass-border);
+    background: var(--glass); position:relative; cursor:pointer; flex:none;
+    transition: background .35s ease;
+  }
+  .toggle .knob{
+    position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%;
+    background: linear-gradient(155deg, var(--gold-300), var(--gold-500));
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    display:grid; place-items:center;
+    transition: transform .4s cubic-bezier(.22,1,.36,1);
+  }
+  html.dark .toggle .knob{ transform: translateX(-20px); background: linear-gradient(155deg, var(--navy-700), var(--navy-950)); }
+  .toggle .knob svg{ width:12px; height:12px; }
+
+  /* ---------- hero ---------- */
+  .hero{
+    max-width:900px; margin:64px auto 42px; padding:0 20px; text-align:center;
+  }
+  .eyebrow{
+    font-size:.72rem; letter-spacing:.16em; color:var(--accent);
+    font-weight:700; text-transform:uppercase; opacity:0; animation: fadeUp .7s ease .25s forwards;
+  }
+  .hero h1{
+    font-family:var(--font-display); font-weight:900;
+    font-size: clamp(2.1rem, 5vw, 3.4rem);
+    line-height:1.15; margin:10px 0 14px;
+    background: linear-gradient(95deg, var(--text) 30%, var(--accent) 105%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    opacity:0; animation: fadeUp .8s ease .35s forwards;
+  }
+  .hero p{
+    color:var(--text-dim); font-size:1rem; max-width:560px; margin:0 auto;
+    opacity:0; animation: fadeUp .8s ease .45s forwards;
+  }
+  @keyframes fadeUp{ from{opacity:0; transform:translateY(16px);} to{opacity:1; transform:translateY(0);} }
+
+  .search-wrap{
+    margin:30px auto 0; max-width:440px;
+    opacity:0; animation: fadeUp .8s ease .55s forwards;
+  }
+  .search{
+    display:flex; align-items:center; gap:10px;
+    background:var(--glass); backdrop-filter:blur(18px) saturate(160%); -webkit-backdrop-filter:blur(18px) saturate(160%);
+    border:1px solid var(--glass-border); border-radius:16px;
+    padding:12px 16px; box-shadow: var(--card-shadow);
+    transition: box-shadow .3s ease, border-color .3s ease;
+  }
+  .search:focus-within{ border-color: var(--ring); box-shadow: 0 0 0 4px var(--ring), var(--card-shadow); }
+  .search svg{ width:17px; height:17px; color:var(--text-dim); flex:none; }
+  .search input{
+    border:none; outline:none; background:transparent; width:100%;
+    font-family:var(--font-body); font-size:.92rem; color:var(--text);
+  }
+  .search input::placeholder{ color:var(--text-dim); }
+
+  /* ---------- grid ---------- */
+  .grid{
+    max-width:1180px; margin:46px auto 90px; padding:0 20px;
+    display:grid; gap:20px;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  }
+
+  .card{
+    position:relative; text-decoration:none; color:inherit;
+    padding:26px 20px 22px; border-radius:22px;
+    background: var(--glass);
+    border:1px solid var(--glass-border);
+    backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+    box-shadow: var(--card-shadow);
+    display:flex; flex-direction:column; gap:14px;
+    opacity:0; transform: translateY(22px) scale(.97);
+    animation: cardIn .7s cubic-bezier(.22,1,.36,1) forwards;
+    animation-delay: calc(var(--i) * 70ms + 550ms);
+    transform-style: preserve-3d; will-change: transform;
+    transition: box-shadow .35s ease, border-color .35s ease, background .35s ease;
+    cursor:pointer;
+  }
+  @keyframes cardIn{ to{ opacity:1; transform:translateY(0) scale(1);} }
+
+  .card::before{
+    content:''; position:absolute; inset:0; border-radius:22px; padding:1px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0) 40%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events:none; opacity:.7;
+  }
+  .card:hover, .card:focus-visible{
+    border-color: var(--ring);
+    box-shadow: 0 30px 60px -24px rgba(0,0,0,.35), 0 0 0 4px var(--ring);
+    background: var(--glass-strong);
+  }
+  .card:focus-visible{ outline:none; }
+  .card:active{ transform: translateY(0) scale(.98) !important; }
+
+  .card-icon{
+    width:52px; height:52px; border-radius:15px; flex:none;
+    display:grid; place-items:center;
+    background: linear-gradient(155deg, var(--icon-a), var(--icon-b));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18), 0 8px 18px -8px var(--icon-a);
+    transition: transform .45s cubic-bezier(.22,1,.36,1);
+  }
+  .card:hover .card-icon{ transform: translateY(-3px) rotate(-4deg) scale(1.05); }
+  .card-icon svg{ width:26px; height:26px; color:#fff; }
+
+  .card-name{ font-family:var(--font-display); font-weight:800; font-size:1.02rem; }
+  .card-desc{ font-size:.78rem; color:var(--text-dim); line-height:1.5; }
+
+  .card-go{
+    margin-top:auto; display:flex; align-items:center; gap:6px;
+    font-size:.72rem; color:var(--accent); font-weight:700; opacity:0; transform:translateX(-4px);
+    transition: opacity .3s ease, transform .3s ease;
+  }
+  html[dir="rtl"] .card-go{ transform:translateX(4px); }
+  .card:hover .card-go{ opacity:1; transform:translateX(0); }
+  .card-go svg{ width:14px; height:14px; }
+
+  /* ---------- edit mode / delete ---------- */
+  .edit-btn{
+    width:38px; height:38px; border-radius:12px; border:1px solid var(--glass-border);
+    background: var(--glass); cursor:pointer; display:grid; place-items:center; flex:none;
+    color: var(--text); transition: background .3s ease, color .3s ease, transform .3s ease;
+  }
+  .edit-btn svg{ width:16px; height:16px; }
+  .edit-btn:hover{ background: var(--glass-strong); }
+  body.edit-mode .edit-btn{ background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+  body.edit-mode .card:not(.ghost){ animation: none; opacity:1; transform:none; cursor:default; }
+  body.edit-mode .card:not(.ghost){ outline: 1.5px dashed var(--glass-border); outline-offset:3px; }
+
+  .delete-btn{
+    position:absolute; top:-9px; left:-9px; width:26px; height:26px; border-radius:50%;
+    background: linear-gradient(155deg,#e0574a,#a83226); color:#fff; border:2px solid var(--bg);
+    display:grid; place-items:center; cursor:pointer; z-index:5;
+    opacity:0; transform:scale(.5); pointer-events:none;
+    transition: transform .3s cubic-bezier(.22,1,.36,1), opacity .3s ease, background .2s ease;
+    box-shadow: 0 4px 10px -3px rgba(0,0,0,.5);
+  }
+  .delete-btn svg{ width:13px; height:13px; }
+  body.edit-mode .card:not(.ghost) .delete-btn{ opacity:1; transform:scale(1); pointer-events:auto; }
+  .delete-btn:hover{ background: linear-gradient(155deg,#ef6a5c,#c23c2d); transform:scale(1.12) !important; }
+
+  .card.removing{ animation: cardOut .35s ease forwards !important; }
+  @keyframes cardOut{ to{ opacity:0; transform:scale(.85) translateY(6px); } }
+
+  .edit-hint{
+    max-width:1180px; margin:0 auto; padding:0 20px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    font-size:.78rem; color:var(--text-dim);
+    max-height:0; opacity:0; overflow:hidden;
+    transition: max-height .4s ease, opacity .4s ease, margin .4s ease;
+  }
+  body.edit-mode .edit-hint{ max-height:60px; opacity:1; margin:-18px auto 26px; }
+  .copy-btn{
+    border:1px solid var(--glass-border); background:var(--glass); color:var(--text);
+    padding:8px 14px; border-radius:10px; font-size:.76rem; font-weight:700; cursor:pointer;
+    font-family:var(--font-body); transition: background .3s ease;
+  }
+  .copy-btn:hover{ background: var(--glass-strong); }
+
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed; bottom:26px; left:50%; transform:translate(-50%, 20px); z-index:100;
+    background: var(--glass-strong); backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
+    border:1px solid var(--glass-border); border-radius:14px; box-shadow: var(--card-shadow);
+    padding:12px 16px; display:flex; align-items:center; gap:12px;
+    font-size:.8rem; opacity:0; pointer-events:none; transition: opacity .3s ease, transform .3s ease;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%, 0); pointer-events:auto; }
+  .toast button{
+    border:none; background:none; color:var(--accent); font-weight:800; cursor:pointer;
+    font-family:var(--font-body); font-size:.8rem;
+  }
+
+  /* ---------- add/edit modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    background: rgba(7,12,23,0.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    opacity:0; pointer-events:none; transition: opacity .3s ease; padding:20px;
+  }
+  .modal-overlay.show{ opacity:1; pointer-events:auto; }
+  .modal{
+    width:100%; max-width:420px; border-radius:22px; padding:26px 24px 22px;
+    background: var(--glass-strong); backdrop-filter: blur(26px) saturate(170%); -webkit-backdrop-filter: blur(26px) saturate(170%);
+    border:1px solid var(--glass-border); box-shadow: var(--card-shadow);
+    transform: translateY(16px) scale(.97); opacity:0; transition: transform .35s cubic-bezier(.22,1,.36,1), opacity .35s ease;
+  }
+  .modal-overlay.show .modal{ transform:translateY(0) scale(1); opacity:1; }
+  .modal h3{ font-family:var(--font-display); font-size:1.1rem; font-weight:800; margin-bottom:16px; }
+  .field{ margin-bottom:13px; }
+  .field label{ display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:5px; font-weight:600; }
+  .field input, .field select{
+    width:100%; padding:10px 12px; border-radius:11px; border:1px solid var(--glass-border);
+    background: var(--glass); color:var(--text); font-family:var(--font-body); font-size:.88rem; outline:none;
+    transition: border-color .25s ease, box-shadow .25s ease;
+  }
+  .field input:focus, .field select:focus{ border-color: var(--ring); box-shadow: 0 0 0 3px var(--ring); }
+  .swatches{ display:flex; gap:9px; margin-top:2px; }
+  .swatch{
+    width:28px; height:28px; border-radius:50%; cursor:pointer; border:2px solid transparent;
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .swatch:hover{ transform:scale(1.1); }
+  .swatch.active{ border-color: var(--accent); transform:scale(1.12); }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .btn{
+    padding:10px 18px; border-radius:11px; border:none; cursor:pointer;
+    font-family:var(--font-body); font-weight:700; font-size:.85rem;
+    transition: transform .2s ease, opacity .2s ease;
+  }
+  .btn:active{ transform:scale(.96); }
+  .btn-ghost{ background: var(--glass); color:var(--text); border:1px solid var(--glass-border); }
+  .btn-primary{ background: linear-gradient(155deg, var(--gold-400), var(--gold-500)); color: var(--accent-ink); }
+  .field-error{ font-size:.72rem; color:#d9584a; margin-top:5px; display:none; }
+  .field-error.show{ display:block; }
+
+  .card-edit-hint{
+    position:absolute; inset:0; border-radius:22px; display:none;
+    align-items:center; justify-content:center; background: rgba(7,12,23,0.35);
+    color:#fff; font-size:.78rem; font-weight:700; font-family:var(--font-display);
+    opacity:0; transition: opacity .25s ease;
+  }
+  body.edit-mode .card:not(.ghost):hover .card-edit-hint{ display:flex; opacity:1; }
+
+  /* ghost / add card */
+  .card.ghost{
+    align-items:center; justify-content:center; text-align:center;
+    background: transparent; border-style:dashed; border-width:1.5px;
+    box-shadow:none;
+  }
+  .card.ghost .card-icon{ background:transparent; box-shadow:none; border:1.5px dashed var(--glass-border); }
+  .card.ghost .card-icon svg{ color: var(--text-dim); }
+  .card.ghost:hover{ background:var(--glass); box-shadow:var(--card-shadow); }
+  .card.ghost .card-desc{ max-width:170px; }
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--text-dim);
+    display:none; font-size:.9rem;
+  }
+
+  footer{
+    text-align:center; padding:30px 20px 46px; color:var(--text-dim); font-size:.72rem;
+  }
+
+  @media (max-width: 640px){
+    .statusbar{ padding:9px 14px; border-radius:16px; }
+    .brand-sub{ display:none; }
+    .clock .date{ display:none; }
+    .hero{ margin-top:44px; }
+    .grid{ grid-template-columns: repeat(2, 1fr); gap:14px; }
+    .card{ padding:20px 14px 18px; border-radius:18px; }
+  }
+  @media (max-width: 380px){
+    .grid{ grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+    .aurora span{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="aurora"><span></span><span></span><span></span></div>
+
+<header class="statusbar">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#g1)"/><defs><linearGradient id="g1" x1="2" y1="2" x2="22" y2="22"><stop stop-color="#e9d29c"/><stop offset="1" stop-color="#c9a24a"/></linearGradient></defs></svg>
+    </div>
+    <div>
+      <div class="brand-name">مركز القيادة</div>
+      <div class="brand-sub">جميع أدواتك، في مكان واحد</div>
+    </div>
+  </div>
+  <div class="status-right">
+    <div class="clock">
+      <div class="time" id="clockTime">--:--</div>
+      <div class="date" id="clockDate">—</div>
+    </div>
+    <button class="edit-btn" id="editToggle" aria-label="تعديل البطاقات" title="تعديل / حذف البطاقات">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+    </button>
+    <button class="toggle" id="themeToggle" aria-label="تبديل الوضع الليلي" title="الوضع الليلي">
+      <span class="knob">
+        <svg id="knobIcon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+      </span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="eyebrow">لوحتك الخاصة</div>
+    <h1>كل مشاريعك، بلمسة واحدة</h1>
+    <p>مركز قيادة شخصي يجمع كل مواقعك وأدواتك في واجهة واحدة أنيقة وسريعة.</p>
+
+    <div class="search-wrap">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <input id="searchInput" type="text" placeholder="ابحث عن أداة أو موقع..." autocomplete="off">
+      </div>
+    </div>
+  </section>
+
+  <div class="edit-hint">
+    <span>وضع التعديل مفعّل — اضغط على أي بطاقة لتعديل رابطها، أو ✕ لحذفها.</span>
+    <button class="copy-btn" id="copyConfig">نسخ الإعداد لحفظه بشكل دائم</button>
+  </div>
+
+  <section class="grid" id="grid"></section>
+  <p class="empty" id="emptyMsg">لا توجد نتائج مطابقة لبحثك</p>
+
+  <footer>صُمم بعناية لتجربة استخدام سلسة وشخصية</footer>
+</main>
+
+<div class="toast" id="toast">
+  <span id="toastMsg"></span>
+  <button id="toastUndo">تراجع</button>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">إضافة موقع جديد</h3>
+    <div class="field">
+      <label for="fName">اسم البطاقة</label>
+      <input id="fName" type="text" placeholder="مثال: سجلات القضايا">
+    </div>
+    <div class="field">
+      <label for="fDesc">وصف قصير</label>
+      <input id="fDesc" type="text" placeholder="مثال: أرشيف ومتابعة القضايا">
+    </div>
+    <div class="field">
+      <label for="fUrl">الرابط</label>
+      <input id="fUrl" type="url" placeholder="https://example.com">
+      <div class="field-error" id="fError">فضلاً أدخل اسمًا ورابطًا صحيحًا (يبدأ بـ http:// أو https://)</div>
+    </div>
+    <div class="field">
+      <label for="fIcon">الأيقونة</label>
+      <select id="fIcon"></select>
+    </div>
+    <div class="field">
+      <label>اللون</label>
+      <div class="swatches" id="fSwatches"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modalCancel">إلغاء</button>
+      <button class="btn btn-primary" id="modalSave">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   بيانات المواقع — CONFIG
+   لإضافة موقع جديد: أضف عنصرًا جديدًا للمصفوفة بنفس الشكل.
+   لحذف موقع: احذف عنصره من المصفوفة.
+   icon: اختر أحد المفاتيح الموجودة في كائن ICONS بالأسفل، أو أضف مفتاحًا جديدًا.
+   colors: [لون البداية، لون النهاية] لتدرج أيقونة البطاقة.
+   ===================================================================== */
+const SITES = [
+  {
+    name: 'موقع الموظفين',
+    desc: 'إدارة بيانات وشؤون الموظفين',
+    url: 'https://example.com/employees',
+    icon: 'users',
+    colors: ['#2c4770', '#0e1c33']
+  },
+  {
+    name: 'الكيبورد',
+    desc: 'أداة الكيبورد الخاصة بك',
+    url: 'https://example.com/keyboard',
+    icon: 'keyboard',
+    colors: ['#4a5568', '#1f242e']
+  },
+  {
+    name: 'الصبة',
+    desc: 'متابعة وإدارة أعمال الصب',
+    url: 'https://example.com/pouring',
+    icon: 'droplet',
+    colors: ['#3d7ea6', '#1a3a52']
+  },
+  {
+    name: 'سجلات القضايا',
+    desc: 'أرشيف ومتابعة القضايا',
+    url: 'https://example.com/cases',
+    icon: 'folder',
+    colors: ['#7a5c2e', '#3c2c14']
+  },
+  {
+    name: 'مولد الأحكام',
+    desc: 'إصدار وصياغة الأحكام تلقائيًا',
+    url: 'https://example.com/rulings',
+    icon: 'gavel',
+    colors: ['#c9a24a', '#7a5c2e']
+  },
+  {
+    name: 'الإعدادات',
+    desc: 'تخصيص مركز القيادة',
+    url: 'https://example.com/settings',
+    icon: 'settings',
+    colors: ['#5b5b66', '#232329']
+  }
+];
+
+const ICONS = {
+  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path><circle cx="10" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+  keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"></path>',
+  droplet: '<path d="M12 2s7 8.5 7 13a7 7 0 0 1-14 0c0-4.5 7-13 7-13Z"></path>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"></path>',
+  gavel: '<path d="m14.5 6.5-9 9"></path><path d="m11 3 3.5 3.5"></path><path d="m17.5 9.5 3.5 3.5"></path><path d="M6 13.5 3 16.5 7.5 21l3-3"></path><path d="m15 9 6 6"></path>',
+  settings: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path>',
+  briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>',
+  scale: '<path d="M12 3v18"></path><path d="m7 8-4 8a4 4 0 0 0 8 0Z"></path><path d="m21 8-4 8a4 4 0 0 0 8 0Z"></path><path d="M5 8h14"></path><path d="M12 3 7 8"></path><path d="M12 3l5 5"></path>',
+  link: '<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"></path>'
+};
+
+const grid = document.getElementById('grid');
+const emptyMsg = document.getElementById('emptyMsg');
+
+function iconSvg(key){
+  const paths = ICONS[key] || ICONS.link;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
+
+function renderCards(list){
+  grid.innerHTML = '';
+  list.forEach((site, i) => {
+    const a = document.createElement('a');
+    a.href = site.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.className = 'card';
+    a.style.setProperty('--i', i);
+    a.style.setProperty('--icon-a', site.colors[0]);
+    a.style.setProperty('--icon-b', site.colors[1]);
+    a.innerHTML = `
+      <button type="button" class="delete-btn" aria-label="حذف ${site.name}" title="حذف">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+      </button>
+      <div class="card-edit-hint">اضغط للتعديل</div>
+      <div class="card-icon">${iconSvg(site.icon)}</div>
+      <div>
+        <div class="card-name">${site.name}</div>
+        <div class="card-desc">${site.desc}</div>
+      </div>
+      <div class="card-go">
+        <span>فتح</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M7 7h10v10"></path></svg>
+      </div>`;
+
+    // in edit mode: block navigation and open the edit modal instead
+    a.addEventListener('click', (e) => {
+      if (document.body.classList.contains('edit-mode')) {
+        e.preventDefault();
+        openModal('edit', site);
+      }
+    });
+
+    // delete this site
+    a.querySelector('.delete-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      deleteSite(site, a);
+    });
+
+    grid.appendChild(a);
+  });
+
+  // ghost "add" card — always clickable
+  const ghost = document.createElement('div');
+  ghost.className = 'card ghost';
+  ghost.style.setProperty('--i', list.length);
+  ghost.innerHTML = `
+    <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg></div>
+    <div class="card-name">إضافة موقع</div>
+    <div class="card-desc">اضغط هنا لإضافة رابط جديد مباشرة</div>`;
+  ghost.addEventListener('click', () => openModal('add'));
+  grid.appendChild(ghost);
+
+  emptyMsg.style.display = list.length === 0 ? 'block' : 'none';
+}
+renderCards(SITES);
+
+// ---- search ----
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const filtered = SITES.filter(s =>
+    s.name.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q)
+  );
+  renderCards(filtered);
+});
+
+// ---- clock ----
+function updateClock(){
+  const now = new Date();
+  const time = new Intl.DateTimeFormat('ar-EG', { hour: '2-digit', minute: '2-digit' }).format(now);
+  const date = new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(now);
+  document.getElementById('clockTime').textContent = time;
+  document.getElementById('clockDate').textContent = date;
+}
+updateClock();
+setInterval(updateClock, 30000);
+
+// ---- edit mode ----
+const editToggle = document.getElementById('editToggle');
+editToggle.addEventListener('click', () => {
+  document.body.classList.toggle('edit-mode');
+});
+
+// ---- delete with undo ----
+const toast = document.getElementById('toast');
+const toastMsg = document.getElementById('toastMsg');
+const toastUndo = document.getElementById('toastUndo');
+let toastTimer = null;
+let lastDeleted = null; // { site, index }
+
+function showToast(message, showUndo){
+  toastMsg.textContent = message;
+  toastUndo.style.display = showUndo ? 'inline-block' : 'none';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 5000);
+}
+
+function deleteSite(site, cardEl){
+  const index = SITES.indexOf(site);
+  if (index === -1) return;
+  cardEl.classList.add('removing');
+  setTimeout(() => {
+    SITES.splice(index, 1);
+    lastDeleted = { site, index };
+    renderCards(SITES);
+    showToast(`تم حذف "${site.name}" لهذه الجلسة`, true);
+  }, 320);
+}
+
+toastUndo.addEventListener('click', () => {
+  if (!lastDeleted) return;
+  SITES.splice(lastDeleted.index, 0, lastDeleted.site);
+  lastDeleted = null;
+  renderCards(SITES);
+  toast.classList.remove('show');
+});
+
+// ---- copy updated config (to make deletions permanent in the file) ----
+document.getElementById('copyConfig').addEventListener('click', async () => {
+  const code = 'const SITES = ' + JSON.stringify(SITES, null, 2) + ';';
+  try{
+    await navigator.clipboard.writeText(code);
+    showToast('تم نسخ الإعداد — الصقه مكان مصفوفة SITES في الكود', false);
+  }catch(err){
+    showToast('تعذّر النسخ التلقائي، انسخ الإعداد يدويًا من الكونسول', false);
+    console.log(code);
+  }
+});
+
+// ---- add / edit modal ----
+const ICON_LABELS = {
+  users: 'أشخاص', keyboard: 'لوحة مفاتيح', droplet: 'قطرة', folder: 'ملف',
+  gavel: 'مطرقة', settings: 'إعدادات', briefcase: 'حقيبة', scale: 'ميزان', link: 'رابط'
+};
+const SWATCHES = [
+  ['#2c4770', '#0e1c33'],
+  ['#4a5568', '#1f242e'],
+  ['#3d7ea6', '#1a3a52'],
+  ['#7a5c2e', '#3c2c14'],
+  ['#c9a24a', '#7a5c2e'],
+  ['#8a4a4a', '#3c1f1f']
+];
+
+const modalOverlay = document.getElementById('modalOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const fName = document.getElementById('fName');
+const fDesc = document.getElementById('fDesc');
+const fUrl = document.getElementById('fUrl');
+const fIcon = document.getElementById('fIcon');
+const fSwatches = document.getElementById('fSwatches');
+const fError = document.getElementById('fError');
+
+fIcon.innerHTML = Object.keys(ICONS).map(key =>
+  `<option value="${key}">${ICON_LABELS[key] || key}</option>`
+).join('');
+
+fSwatches.innerHTML = SWATCHES.map((c, i) =>
+  `<span class="swatch" data-i="${i}" style="background:linear-gradient(155deg, ${c[0]}, ${c[1]})"></span>`
+).join('');
+let selectedSwatch = 0;
+fSwatches.querySelectorAll('.swatch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    selectedSwatch = Number(sw.dataset.i);
+    fSwatches.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+  });
+});
+
+let modalMode = 'add';
+let editingSite = null;
+
+function openModal(mode, site){
+  modalMode = mode;
+  editingSite = site || null;
+  fError.classList.remove('show');
+
+  if (mode === 'edit' && site){
+    modalTitle.textContent = 'تعديل البطاقة';
+    fName.value = site.name;
+    fDesc.value = site.desc;
+    fUrl.value = site.url;
+    fIcon.value = site.icon;
+    selectedSwatch = SWATCHES.findIndex(c => c[0] === site.colors[0] && c[1] === site.colors[1]);
+    if (selectedSwatch === -1) selectedSwatch = 0;
+  } else {
+    modalTitle.textContent = 'إضافة موقع جديد';
+    fName.value = '';
+    fDesc.value = '';
+    fUrl.value = '';
+    fIcon.value = 'link';
+    selectedSwatch = Math.floor(Math.random() * SWATCHES.length);
+  }
+  fSwatches.querySelectorAll('.swatch').forEach((s, i) => s.classList.toggle('active', i === selectedSwatch));
+
+  modalOverlay.classList.add('show');
+  setTimeout(() => fName.focus(), 200);
+}
+
+function closeModal(){
+  modalOverlay.classList.remove('show');
+}
+
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('show')) closeModal(); });
+
+document.getElementById('modalSave').addEventListener('click', () => {
+  const name = fName.value.trim();
+  let url = fUrl.value.trim();
+  const desc = fDesc.value.trim() || 'رابط سريع';
+
+  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+  if (!name || !url || !/^https?:\/\/.+/i.test(url)){
+    fError.classList.add('show');
+    return;
+  }
+  fError.classList.remove('show');
+
+  const data = { name, desc, url, icon: fIcon.value, colors: SWATCHES[selectedSwatch] };
+
+  if (modalMode === 'edit' && editingSite){
+    Object.assign(editingSite, data);
+    showToast(`تم تحديث "${name}"`, false);
+  } else {
+    SITES.push(data);
+    showToast(`تمت إضافة "${name}"`, false);
+  }
+  renderCards(SITES);
+  closeModal();
+});
+
+// ---- theme toggle (respects system preference; session only) ----
+const root = document.documentElement;
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+if (prefersDark) root.classList.add('dark');
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+  root.classList.toggle('dark');
+});
+
+// ---- subtle tilt on hover (skips if reduced motion) ----
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (!reduceMotion){
+  document.addEventListener('mousemove', (e) => {
+    const card = e.target.closest('.card');
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    card.style.transform = `perspective(700px) rotateX(${(-y*6).toFixed(2)}deg) rotateY(${(x*-6).toFixed(2)}deg) translateY(-4px)`;
+  });
+  document.addEventListener('mouseout', (e) => {
+    const card = e.target.closest('.card');
+    if (card && !card.matches(':hover')) card.style.transform = '';
+  });
+}
+</script>
+</body>
+</html>
